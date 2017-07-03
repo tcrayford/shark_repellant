@@ -1,0 +1,11 @@
+target
+
+# Temp files
+.idea
+*.iml
+
+# vim temporary files
+*.swp
+
+# other ignores
+*.DS_Store
