@@ -1,0 +1,6 @@
+[package]
+name = "shark_repellant"
+version = "0.1.0"
+authors = ["Tom Crayford <tcrayford@googlemail.com>"]
+
+[dependencies]
