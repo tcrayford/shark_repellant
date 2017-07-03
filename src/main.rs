@@ -17,9 +17,6 @@ fn main() {
 }
 
 fn run(repo: Repository) {
-    // TODO:
-    // print dirty markers/etc
-    // colors
     print!("{}{}{}", format_head(repo.head()), format_statuses(repo.statuses(None)), format_state(repo.state()))
 }
 
