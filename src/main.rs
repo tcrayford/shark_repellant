@@ -17,7 +17,25 @@ fn main() {
 }
 
 fn run(repo: Repository) {
-    print!("{}{}{}", format_head(repo.head()), format_statuses(repo.statuses(None)), format_state(repo.state()))
+    let state = repo.state();
+    match state {
+        RepositoryState::Rebase => {
+            match repo.revparse_ext("ORIG_HEAD") {
+                Ok((_, Some(r))) => {
+                    print!("{}{}|REBASE", format_head(Ok(r)), format_statuses(repo.statuses(None)))
+                }
+                Ok(_) => {
+                    print!("{}{}{}", format_head(repo.head()), format_statuses(repo.statuses(None)), format_state(state))
+                }
+                Err(_) => {
+                    print!("{}{}{}", format_head(repo.head()), format_statuses(repo.statuses(None)), format_state(state))
+                }
+            }
+        }
+        _ => {
+            print!("{}{}{}", format_head(repo.head()), format_statuses(repo.statuses(None)), format_state(state))
+        }
+    };
 }
 
 fn format_state(state: RepositoryState) -> String {
@@ -40,12 +58,30 @@ fn format_state(state: RepositoryState) -> String {
 
 fn format_head(head_result: Result<Reference, Error>) -> String {
     return match head_result {
-        Ok(head) => match head.shorthand() {
-                        Some(name) => String::from(name),
-                        None => String::from(""),
-                    },
+        Ok(head) => {
+            if head.is_branch() {
+                let shorthand = head.shorthand();
+                match shorthand {
+                    Some(name) => String::from(name),
+                    None => String::from(""),
+                }
+            } else {
+                match commit_shortid_from_reference(head) {
+                    Ok(shortid) => shortid,
+                    Err(_) => String::from("HEAD"),
+                }
+            }
+        },
         Err(_) => String::from(""),
     }
+}
+
+fn commit_shortid_from_reference(r: Reference) -> Result<String, Error> {
+    let peeled = try!(r.peel(git2::ObjectType::Commit));
+    let _ = try!(peeled.as_commit().ok_or(git2::Error::from_str("HEAD")));
+    let shortid = try!(peeled.short_id());
+    let shortid_str = try!(shortid.as_str().ok_or(git2::Error::from_str("HEAD")));
+    return Ok(format!("({}...)", shortid_str))
 }
 
 fn format_statuses(statuses_result: Result<Statuses, Error>) -> String {
