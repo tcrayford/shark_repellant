@@ -8,6 +8,11 @@ use git2::Statuses;
 use ansi_term::Colour::Red;
 use ansi_term::Colour::Green;
 use std::string::ToString;
+use std::path::Path;
+use std::fs::File;
+use std::io;
+use std::io::Read;
+use std::fmt;
 
 fn main() {
     let _ = match Repository::discover(".") {
@@ -18,24 +23,28 @@ fn main() {
 
 fn run(repo: Repository) {
     let state = repo.state();
+    let statuses = format_statuses(repo.statuses(None));
+    let head = format_head(repo.head());
     match state {
-        RepositoryState::Rebase => {
-            match repo.revparse_ext("ORIG_HEAD") {
-                Ok((_, Some(r))) => {
-                    print!("{}{}|REBASE", format_head(Ok(r)), format_statuses(repo.statuses(None)))
-                }
-                Ok(_) => {
-                    print!("{}{}{}", format_head(repo.head()), format_statuses(repo.statuses(None)), format_state(state))
-                }
-                Err(_) => {
-                    print!("{}{}{}", format_head(repo.head()), format_statuses(repo.statuses(None)), format_state(state))
-                }
-            }
-        }
+        RepositoryState::Rebase => format_rebase(rebase_info(repo), statuses, head, state),
+        RepositoryState::RebaseInteractive => format_rebase(rebase_info(repo), statuses, head, state),
         _ => {
-            print!("{}{}{}", format_head(repo.head()), format_statuses(repo.statuses(None)), format_state(state))
+            print!("{}{}{}", head, statuses, format_state(state))
         }
     };
+}
+
+fn format_rebase(info: Result<RebaseInfo, Error>, statuses: String, head: String, state: RepositoryState) {
+    return match info {
+        Ok(r) => {
+            match r.branch {
+                Some(branch) => print!("{}{}|{} {}/{}", branch, statuses, r.rebase_type, r.step, r.total),
+                None => print!("{}|{} {}/{}", statuses, r.rebase_type, r.step, r.total),
+
+            }
+        }
+        Err(e) => print!("{}{}{}{}", e, head, statuses, format_state(state)),
+    }
 }
 
 fn format_state(state: RepositoryState) -> String {
@@ -141,4 +150,73 @@ fn dirty_markers(statuses: Statuses) -> String {
         result = format!("{}{}", result, Red.paint("%").to_string())
     }
     return result
+}
+
+#[derive(Copy,Clone)]
+enum RebaseType {
+    Plain,
+    Interactive,
+    Merge,
+    ApplyMerge,
+    ApplyMergeRebase,
+}
+
+impl fmt::Display for RebaseType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let printable = match *self {
+            RebaseType::Plain => "REBASE",
+            RebaseType::Interactive => "REBASE-i",
+            RebaseType::Merge => "REBASE-m",
+            RebaseType::ApplyMerge => "AM",
+            RebaseType::ApplyMergeRebase => "AM/REBASE",
+        };
+        write!(f, "{}", printable)
+    }
+}
+
+struct RebaseInfo {
+    branch: Option<String>,
+    step: String,
+    total: String,
+    rebase_type: RebaseType,
+}
+
+fn rebase_info(repo: Repository) -> Result<RebaseInfo, Error> {
+    if repo.path().join("rebase-merge").exists() {
+        let head_ref_name = try!(read_file_git_error(repo.path().join("rebase-merge").join("head-name").as_path()));
+        let branch = format_head(repo.find_reference(&head_ref_name));
+        let step = try!(read_file_git_error(repo.path().join("rebase-merge").join("msgnum").as_path()));
+        let total = try!(read_file_git_error(repo.path().join("rebase-merge").join("end").as_path()));
+        if repo.path().join("rebase-merge").join("interactive").exists() {
+            return Ok(RebaseInfo {branch: Some(branch), step: step, total: total, rebase_type: RebaseType::Interactive})
+        } else {
+            return Ok(RebaseInfo {branch: Some(branch), step: step, total: total, rebase_type: RebaseType::Merge})
+        }
+    } else if repo.path().join("rebase-apply").exists() {
+        let step = try!(read_file_git_error(repo.path().join("rebase-apply").join("next").as_path()));
+        let total = try!(read_file_git_error(repo.path().join("rebase-apply").join("last").as_path()));
+        if repo.path().join("rebase-apply").join("rebasing").exists() {
+            return Ok(RebaseInfo {branch: None, step: step, total: total, rebase_type: RebaseType::Plain})
+        } else if repo.path().join("rebase-apply").join("applying").exists() {
+            return Ok(RebaseInfo {branch: None, step: step, total: total, rebase_type: RebaseType::ApplyMerge})
+        } else {
+            return Ok(RebaseInfo {branch: None, step: step, total: total, rebase_type: RebaseType::ApplyMergeRebase})
+        }
+    } else {
+        return Err(git2::Error::from_str("HEAD"))
+    }
+}
+
+fn read_file_git_error(p: &Path) -> Result<String, git2::Error> {
+    match read_file(p) {
+        Ok(contents) => Ok(contents),
+        Err(e) => return Err(git2::Error::from_str(&format!("{}", e)))
+    }
+}
+
+fn read_file(p: &Path) -> Result<String, io::Error> {
+    let mut file = try!(File::open(p));
+    let mut contents = String::new();
+    let _ = file.read_to_string(&mut contents);
+    return Ok(String::from(contents.trim()))
 }
