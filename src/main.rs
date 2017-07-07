@@ -193,14 +193,16 @@ fn rebase_info(repo: Repository) -> Result<RebaseInfo, Error> {
             return Ok(RebaseInfo {branch: Some(branch), step: step, total: total, rebase_type: RebaseType::Merge})
         }
     } else if repo.path().join("rebase-apply").exists() {
+        let head_ref_name = try!(read_file_git_error(repo.path().join("rebase-apply").join("head-name").as_path()));
+        let branch = format_head(repo.find_reference(&head_ref_name));
         let step = try!(read_file_git_error(repo.path().join("rebase-apply").join("next").as_path()));
         let total = try!(read_file_git_error(repo.path().join("rebase-apply").join("last").as_path()));
         if repo.path().join("rebase-apply").join("rebasing").exists() {
-            return Ok(RebaseInfo {branch: None, step: step, total: total, rebase_type: RebaseType::Plain})
+            return Ok(RebaseInfo {branch: Some(branch), step: step, total: total, rebase_type: RebaseType::Plain})
         } else if repo.path().join("rebase-apply").join("applying").exists() {
-            return Ok(RebaseInfo {branch: None, step: step, total: total, rebase_type: RebaseType::ApplyMerge})
+            return Ok(RebaseInfo {branch: Some(branch), step: step, total: total, rebase_type: RebaseType::ApplyMerge})
         } else {
-            return Ok(RebaseInfo {branch: None, step: step, total: total, rebase_type: RebaseType::ApplyMergeRebase})
+            return Ok(RebaseInfo {branch: Some(branch), step: step, total: total, rebase_type: RebaseType::ApplyMergeRebase})
         }
     } else {
         return Err(git2::Error::from_str("HEAD"))
