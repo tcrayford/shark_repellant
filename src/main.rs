@@ -15,10 +15,27 @@ use std::io::Read;
 use std::fmt;
 
 fn main() {
+    let pwd_info = match pwd() {
+        Ok(result) => result,
+        Err(e) => format!("{}", e),
+    };
     match git() {
-        Ok(result) => print!("{}", result),
-        Err(_) => print!("{}", ""),
+        Ok(result) => print!("{}({}) $", pwd_info, result),
+        Err(_) => print!("{} $", pwd_info),
 
+    }
+}
+
+fn pwd() -> Result<String, Error> {
+    match std::env::current_dir() {
+        Ok(maybe_dir) => match maybe_dir.file_name() {
+            Some(dir) => match dir.to_str() {
+                Some(dirname) => return Ok(format!("{}", dirname)),
+                None => return Err(git2::Error::from_str("")),
+            },
+            None => return Err(git2::Error::from_str("")),
+        },
+        Err(e) => return Err(git2::Error::from_str(&format!("{}", e)))
     }
 }
 
