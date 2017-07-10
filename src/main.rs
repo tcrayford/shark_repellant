@@ -20,8 +20,8 @@ fn main() {
         Err(e) => format!("{}", e),
     };
     match git() {
-        Ok(result) => print!("{}({}) $", pwd_info, result),
-        Err(_) => print!("{} $", pwd_info),
+        Ok(result) => print!("\n{}({}) $ ", pwd_info, result),
+        Err(_) => print!("\n{} $ ", pwd_info),
 
     }
 }
