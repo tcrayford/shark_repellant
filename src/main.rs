@@ -15,35 +15,43 @@ use std::io::Read;
 use std::fmt;
 
 fn main() {
-    let _ = match Repository::discover(".") {
-        Ok(repo) => run(repo),
-        Err(e) => panic!("failed to init: {}", e),
+    match git() {
+        Ok(result) => print!("{}", result),
+        Err(_) => print!("{}", ""),
+
+    }
+}
+
+fn git() -> Result<String, Error> {
+    match Repository::discover(".") {
+        Ok(repo) => return git_info(repo),
+        Err(e) => return Err(e)
     };
 }
 
-fn run(repo: Repository) {
+fn git_info(repo: Repository) -> Result<String, Error> {
     let state = repo.state();
     let statuses = format_statuses(repo.statuses(None));
     let head = format_head(repo.head());
     match state {
-        RepositoryState::Rebase => format_rebase(rebase_info(repo), statuses, head, state),
-        RepositoryState::RebaseInteractive => format_rebase(rebase_info(repo), statuses, head, state),
+        RepositoryState::Rebase => return format_rebase(rebase_info(repo), statuses, head, state),
+        RepositoryState::RebaseInteractive => return format_rebase(rebase_info(repo), statuses, head, state),
         _ => {
-            print!("{}{}{}", head, statuses, format_state(state))
+            return Ok(format!("{}{}{}", head, statuses, format_state(state)))
         }
     };
 }
 
-fn format_rebase(info: Result<RebaseInfo, Error>, statuses: String, head: String, state: RepositoryState) {
-    return match info {
+fn format_rebase(info: Result<RebaseInfo, Error>, statuses: String, head: String, state: RepositoryState) -> Result<String, Error> {
+    match info {
         Ok(r) => {
             match r.branch {
-                Some(branch) => print!("{}{}|{} {}/{}", branch, statuses, r.rebase_type, r.step, r.total),
-                None => print!("{}|{} {}/{}", statuses, r.rebase_type, r.step, r.total),
+                Some(branch) => return Ok(format!("{}{}|{} {}/{}", branch, statuses, r.rebase_type, r.step, r.total)),
+                None => return Ok(format!("{}|{} {}/{}", statuses, r.rebase_type, r.step, r.total)),
 
             }
         }
-        Err(e) => print!("{}{}{}{}", e, head, statuses, format_state(state)),
+        Err(e) => return Ok(format!("{}{}{}{}", e, head, statuses, format_state(state))),
     }
 }
 
