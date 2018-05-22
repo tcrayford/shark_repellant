@@ -5,4 +5,4 @@ authors = ["Tom Crayford <tcrayford@googlemail.com>"]
 
 [dependencies]
 git2 = "0.6.6"
-ansi_term = "0.9"
+ansi_term = "0.11.0"

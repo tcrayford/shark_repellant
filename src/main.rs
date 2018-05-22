@@ -5,8 +5,8 @@ use git2::Repository;
 use git2::RepositoryState;
 use git2::Reference;
 use git2::Statuses;
-use ansi_term::Colour::Red;
-use ansi_term::Colour::Green;
+use ansi_term::Colour::{Red, Green};
+use ansi_term::ANSIStrings;
 use std::string::ToString;
 use std::path::Path;
 use std::fs::File;
@@ -158,17 +158,17 @@ fn dirty_markers(statuses: &Statuses) -> String {
             changes_in_workdir = true
         }
     }
-    let mut result = String::from("");
+    let mut strings = vec![];
     if changes_in_workdir {
-        result = format!("{}{}", result, Red.paint("!").to_string())
+        strings.push(Red.paint("!"));
     }
     if changes_in_index {
-        result = format!("{}{}", result, Green.paint("+").to_string())
+        strings.push(Green.paint("+"));
     }
     if added_in_workdir {
-        result = format!("{}{}", result, Red.paint("%").to_string())
+        strings.push(Red.paint("%%"));
     }
-    result
+    format!("{}", ANSIStrings(&strings[..]))
 }
 
 #[derive(Copy,Clone)]
