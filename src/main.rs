@@ -166,7 +166,7 @@ fn dirty_markers(statuses: &Statuses) -> String {
         strings.push(Green.paint("+"));
     }
     if added_in_workdir {
-        strings.push(Red.paint("%%"));
+        strings.push(Red.paint("%"));
     }
     format!("{}", ANSIStrings(&strings[..]))
 }
